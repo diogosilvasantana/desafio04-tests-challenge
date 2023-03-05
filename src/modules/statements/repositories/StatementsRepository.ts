@@ -1,54 +1,65 @@
-import { getRepository, Repository } from "typeorm";
+import { getRepository, Repository } from 'typeorm'
 
-import { Statement } from "../entities/Statement";
-import { ICreateStatementDTO } from "../useCases/createStatement/ICreateStatementDTO";
-import { IGetBalanceDTO } from "../useCases/getBalance/IGetBalanceDTO";
-import { IGetStatementOperationDTO } from "../useCases/getStatementOperation/IGetStatementOperationDTO";
-import { IStatementsRepository } from "./IStatementsRepository";
+import { Statement } from '../entities/Statement'
+import { ICreateStatementDTO } from '../useCases/createStatement/ICreateStatementDTO'
+import { IGetBalanceDTO } from '../useCases/getBalance/IGetBalanceDTO'
+import { IGetStatementOperationDTO } from '../useCases/getStatementOperation/IGetStatementOperationDTO'
+import { IStatementsRepository } from './IStatementsRepository'
 
 export class StatementsRepository implements IStatementsRepository {
-  private repository: Repository<Statement>;
+  private repository: Repository<Statement>
 
   constructor() {
-    this.repository = getRepository(Statement);
+    this.repository = getRepository(Statement)
   }
 
   async create({
     user_id,
+    sender_id,
     amount,
     description,
     type
   }: ICreateStatementDTO): Promise<Statement> {
     const statement = this.repository.create({
       user_id,
+      sender_id,
       amount,
       description,
       type
-    });
+    })
 
-    return this.repository.save(statement);
+    return this.repository.save(statement)
   }
 
-  async findStatementOperation({ statement_id, user_id }: IGetStatementOperationDTO): Promise<Statement | undefined> {
+  async findStatementOperation({
+    statement_id,
+    user_id
+  }: IGetStatementOperationDTO): Promise<Statement | undefined> {
     return this.repository.findOne(statement_id, {
       where: { user_id }
-    });
+    })
   }
 
-  async getUserBalance({ user_id, with_statement = false }: IGetBalanceDTO):
-    Promise<
-      { balance: number } | { balance: number, statement: Statement[] }
-    >
-  {
+  async getUserBalance({
+    user_id,
+    with_statement = false
+  }: IGetBalanceDTO): Promise<
+    { balance: number } | { balance: number; statement: Statement[] }
+  > {
     const statement = await this.repository.find({
       where: { user_id }
-    });
+    })
 
     const balance = statement.reduce((acc, operation) => {
-      if (operation.type === 'deposit') {
-        return acc + operation.amount;
+      const amount = Number(operation.amount)
+
+      if (
+        operation.type === 'withdraw' ||
+        (operation.type === 'transfer' && operation.sender_id === user_id)
+      ) {
+        return acc - amount
       } else {
-        return acc - operation.amount;
+        return acc + amount
       }
     }, 0)
 
